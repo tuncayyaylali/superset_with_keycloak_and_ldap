@@ -382,7 +382,6 @@ kubectl delete namespace superset-bi
 ```
 ├── AGENTS.MD                               # System requirements and autonomous agent blueprint
 ├── README.md                               # Operational guide and platform documentation
-├── .env.example                            # Configuration environment template
 ├── .gitignore                              # Git ignore rules for secrets and temporary files
 ├── data/
 │   └── schema.sql                          # Analytics DW schema and mock orders seed
@@ -418,17 +417,11 @@ kubectl delete namespace superset-bi
 │           ├── web-deployment.yaml
 │           └── worker-deployment.yaml
 ├── docs/
-│   ├── images/                             # Instructional screenshots
-│   │   ├── 01_superset_signin_button.png
-│   │   ├── 02_keycloak_login.png
-│   │   ├── 03_superset_synced_users.png
-│   │   └── 04_phpldapadmin_groups_tree.png
-│   └── rls_matrix.md                       # Comprehensive RLS mapping specification
-├── iam/
-│   ├── ldap/
-│   │   └── bootstrap.ldif                  # Seed users and organizational groups
-│   └── keycloak/
-│       └── realm-export.json               # Pre-configured realm with LDAP federation
+│   └── images/                             # Instructional screenshots
+│       ├── 01_superset_signin_button.png
+│       ├── 02_keycloak_login.png
+│       ├── 03_superset_synced_users.png
+│       └── 04_phpldapadmin_groups_tree.png
 └── superset/
     ├── config/
     │   └── superset_config.py              # Superset configuration with OAuth provider
