@@ -446,6 +446,9 @@ Follow the generic creation workflow below, then apply the specific field config
 ![Superset Rendered Dashboard View](docs/images/09_superset_finance_dashboard.png)
 
 3. To rearrange or add new components, click **Edit Dashboard** (top right) and drag layout elements (Rows, Columns, Tabs, Header) from the right sidebar. Click **Save** when finished.
+4. **Publish the Dashboard (Mandatory for Viewers)**:
+   * Newly created dashboards are saved in **Draft** status by default. In Apache Superset, Draft dashboards are visible **only to Admins and Owners**.
+   * To allow non-admin viewers (`Finance_Viewers`, `Sales_Viewers`) to view the dashboard, click the status badge next to the dashboard title at the top to toggle it from **Draft** to **Published**. Alternatively, ensure the status is set to Published in the Dashboards list view.
 
 ### 6.6 Enforce Dashboard Access Control (RBAC) in Superset UI
 Because `DASHBOARD_RBAC` is enabled, only users possessing authorized roles can see or open specific dashboards:
