@@ -2,7 +2,9 @@
 
 An enterprise-grade Business Intelligence platform deployed on Kubernetes, integrating **Apache Superset**, **Keycloak**, **OpenLDAP**, and **PostgreSQL**.
 
-User identities and group memberships are mastered inside OpenLDAP, federated to Keycloak via OpenID Connect (OIDC), and synchronized dynamically into Apache Superset upon login. Access control is enforced at both the dashboard level (Dashboard RBAC) and the database query layer (Row-Level Security / RLS).
+User identities and departmental memberships are mastered inside OpenLDAP, federated to Keycloak via OpenID Connect (OIDC), and synchronized dynamically into Apache Superset upon login. Access control is strictly enforced at both the dashboard level (Dashboard RBAC) and the database query layer (Row-Level Security / RLS).
+
+This repository contains all production Kubernetes manifests, LDAP seed structures, Keycloak realm definitions, and database schemas. Deployments are executed via standard `kubectl` CLI commands, while administration, user management, and governance configurations are performed directly through their respective Web UIs.
 
 ---
 
@@ -37,7 +39,7 @@ flowchart TD
 * **Identity and Access Management (IAM)**: Keycloak 24.0.5 running on Quarkus with PostgreSQL storage.
 * **Business Intelligence (BI)**: Apache Superset 3.1.1 with Celery worker and Redis broker.
 * **Databases**: PostgreSQL 15 hosting both Superset application metadata (`superset`) and business analytics data warehouse (`analytics_dw`).
-* **Orchestration and Security**: Kubernetes manifests managed via Kustomize, reinforced by zero-trust Kubernetes NetworkPolicies.
+* **Security & Network Isolation**: Kubernetes manifests managed via Kustomize, reinforced by zero-trust Kubernetes NetworkPolicies.
 
 ---
 
@@ -59,28 +61,29 @@ The default password for all seed LDAP users is: `Password123!`
 
 ## Prerequisites
 
-Before deploying the platform, ensure the following tools are installed and operational:
+Before deploying the platform, ensure the following tools are installed:
 
 * Kubernetes cluster (Docker Desktop Kubernetes, Minikube, or Kind).
 * `kubectl` CLI configured with cluster-admin access.
-* PowerShell 5.1 or PowerShell 7+ on Windows.
 
 ---
 
-## Step 1: Manual Step-by-Step Cluster Deployment
+## Part 1: Platform Deployment via kubectl
 
-Deploy all platform components step-by-step using standard `kubectl` commands.
+All Kubernetes resources are structured in the `deploy/k8s/` directory and can be deployed step-by-step or in a single command.
 
-### 1.1 Create Namespace and Secrets
-Initialize the target namespace and load base credentials:
+### Option A: Step-by-Step Deployment
+
+#### 1. Create Namespace and Secrets
+Initialize the dedicated namespace and load infrastructure secrets:
 
 ```bash
 kubectl apply -f deploy/k8s/namespace.yaml
 kubectl apply -f deploy/k8s/secrets.yaml
 ```
 
-### 1.2 Deploy OpenLDAP and phpLDAPadmin (Phase 1)
-Deploy the directory service, bootstrap schemas, and web interface:
+#### 2. Deploy OpenLDAP and phpLDAPadmin (Phase 1)
+Deploy the directory service, bootstrap schemas, and web administration interface:
 
 ```bash
 kubectl apply -f deploy/k8s/ldap/configmap.yaml
@@ -94,8 +97,8 @@ kubectl wait --for=condition=ready pod -l app=openldap -n superset-bi --timeout=
 kubectl rollout status deployment/phpldapadmin -n superset-bi --timeout=180s
 ```
 
-### 1.3 Deploy Keycloak Identity Broker (Phase 1)
-Deploy the Keycloak PostgreSQL storage and server with pre-configured realm import:
+#### 3. Deploy Keycloak Identity Broker (Phase 1)
+Deploy PostgreSQL storage for Keycloak, configure the automated realm import, and start Keycloak:
 
 ```bash
 kubectl apply -f deploy/k8s/keycloak/postgres-pvc.yaml
@@ -110,8 +113,8 @@ kubectl wait --for=condition=ready pod -l app=keycloak-db -n superset-bi --timeo
 kubectl rollout status deployment/keycloak -n superset-bi --timeout=300s
 ```
 
-### 1.4 Deploy Apache Superset Infrastructure (Phase 2)
-Deploy PostgreSQL, Redis, configuration files, and run database migrations:
+#### 4. Deploy Apache Superset Infrastructure (Phase 2)
+Deploy PostgreSQL metadata DB, Redis cache, Superset configuration files, run the initialization Job, and start the Webserver and Worker:
 
 ```bash
 kubectl apply -f deploy/k8s/superset/db-pvc.yaml
@@ -126,7 +129,7 @@ kubectl apply -f deploy/k8s/superset/service.yaml
 kubectl wait --for=condition=ready pod -l app=superset-db -n superset-bi --timeout=180s
 kubectl wait --for=condition=ready pod -l app=superset-redis -n superset-bi --timeout=180s
 
-# Run database initialization and migration job
+# Run database migrations and role initialization
 kubectl apply -f deploy/k8s/superset/init-job.yaml
 kubectl wait --for=condition=complete job/superset-init -n superset-bi --timeout=300s
 
@@ -137,44 +140,63 @@ kubectl rollout status deployment/superset-web -n superset-bi --timeout=300s
 kubectl rollout status deployment/superset-worker -n superset-bi --timeout=300s
 ```
 
-### 1.5 Seed Analytics Data Warehouse and Configure Governance (Phase 3)
-Initialize the `analytics_dw` database, populate orders, and register Row-Level Security rules:
-
-```bash
-# 1. Create analytics_dw database in PostgreSQL
-kubectl exec -n superset-bi deployment/superset-db -- psql -U superset -d postgres -c "CREATE DATABASE analytics_dw;"
-
-# 2. Populate dimensions and fact orders
-kubectl exec -i -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw < data/schema.sql
-
-# 3. Register database, dataset, and RLS rules in Superset
-kubectl exec -i -n superset-bi deployment/superset-web -- python < scripts/configure-superset-governance.py
-
-# 4. Attach analytical charts and layouts to dashboards
-kubectl exec -i -n superset-bi deployment/superset-web -- python < scripts/populate-dashboards.py
-```
-
-### 1.6 Apply Ingress and Zero-Trust Network Policies (Phase 4)
-Protect inter-pod communication and configure HTTP routing:
+#### 5. Apply Ingress and Zero-Trust Network Policies (Phase 4)
+Configure HTTP routing and enforce zero-trust inter-pod network isolation:
 
 ```bash
 kubectl apply -f deploy/k8s/ingress.yaml
 kubectl apply -f deploy/k8s/network-policies.yaml
 ```
 
-*(Note: You can also deploy all YAML manifests in a single command using `kubectl apply -k deploy/k8s` and then execute the schema seeding and governance scripts in step 1.5).*
+---
+
+### Option B: Single-Command Deployment via Kustomize
+
+Alternatively, deploy all manifests simultaneously:
+
+```bash
+kubectl apply -k deploy/k8s
+```
+
+Wait for all pods in the `superset-bi` namespace to reach Running / Completed status:
+
+```bash
+kubectl get pods -n superset-bi -w
+```
 
 ---
 
-## Step 2: Establish Local Port Forwarding
+## Part 2: Seeding the Business Analytics Data Warehouse
 
-Open separate terminal windows and run the following commands to expose the services to your local machine:
+The PostgreSQL container (`superset-db`) hosts both the `superset` application database and the `analytics_dw` data warehouse database.
 
-```powershell
+Initialize the `analytics_dw` database and load the multi-tenant dataset (`data/schema.sql`):
+
+```bash
+# 1. Create the analytics_dw database
+kubectl exec -n superset-bi deployment/superset-db -- psql -U superset -d postgres -c "CREATE DATABASE analytics_dw;"
+
+# 2. Populate dimensions (departments, regions) and fact_orders
+kubectl exec -i -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw < data/schema.sql
+```
+
+Verify that the sample orders are loaded across FIN, SLS, and OPS departments:
+
+```bash
+kubectl exec -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw -c "SELECT department_code, count(*) as total_orders, sum(order_amount) as total_revenue FROM fact_orders GROUP BY department_code;"
+```
+
+---
+
+## Part 3: Local Port Forwarding
+
+In separate terminal windows, expose the web services to your local machine:
+
+```bash
 # Terminal 1: Apache Superset Web Interface
 kubectl port-forward svc/superset -n superset-bi 8088:8088
 
-# Terminal 2: Keycloak Administration and SSO Broker
+# Terminal 2: Keycloak Admin and SSO Broker
 kubectl port-forward svc/keycloak -n superset-bi 8080:8080
 
 # Terminal 3: phpLDAPadmin Directory Management GUI
@@ -183,37 +205,9 @@ kubectl port-forward svc/phpldapadmin -n superset-bi 8085:80
 
 ---
 
-## Step 3: Accessing Superset via Keycloak Single Sign-On
+## Part 4: Managing LDAP Users via phpLDAPadmin (Manual Web UI Guide)
 
-### 3.1 Sign In with Keycloak
-1. Open your web browser and navigate to: [http://localhost:8088](http://localhost:8088)
-2. On the Superset landing page, click the **"SIGN IN WITH KEYCLOAK"** button:
-
-![Superset Sign In with Keycloak](docs/images/01_superset_signin_button.png)
-
-3. Superset will redirect your browser to the Keycloak authentication screen.
-
-### 3.2 Enter Credentials
-On the Keycloak login page:
-* In the **Username or email** field, enter your LDAP username (for example, `john.admin` or `bob.finance`).
-* In the **Password** field, enter: `Password123!`
-* Click **Sign In**:
-
-![Keycloak Authentication Screen](docs/images/02_keycloak_login.png)
-
-### 3.3 Dynamic User Provisioning and Role Assignment
-Once authenticated:
-1. Keycloak validates the password against OpenLDAP, extracts group memberships, and signs an OpenID Connect token containing the `groups` array claim.
-2. Superset's `CustomSsoSecurityManager` receives the token, creates the user account on demand, and assigns the mapped roles.
-3. If you log in as an administrator (such as `john.admin`), you can navigate to **Settings > List Users** to view all registered users and their synchronized roles:
-
-![Superset Synchronized User Roles List](docs/images/03_superset_synced_users.png)
-
----
-
-## Step 4: Managing LDAP Users via phpLDAPadmin
-
-You can inspect directory objects, create new users, and assign department groups using the web-based phpLDAPadmin interface.
+You can inspect directory objects, create new users, and assign them to department groups using phpLDAPadmin.
 
 ### 4.1 Log In to phpLDAPadmin
 1. Navigate to: [http://localhost:8085](http://localhost:8085)
@@ -222,22 +216,21 @@ You can inspect directory objects, create new users, and assign department group
    * **Password**: `adminpassword`
 3. Click **Authenticate**.
 
-### 4.2 Inspect the Directory Tree
-Expand the tree on the left side by clicking the `+` icons next to:
-* `dc=example,dc=org`
-  * `ou=groups`: Contains the department role groups (`cn=bi-admins`, `cn=bi-analysts`, `cn=bi-finance-viewers`, `cn=bi-sales-viewers`).
-  * `ou=users`: Contains the active user accounts.
+### 4.2 Inspect the Directory Structure
+In the left navigation tree, expand `+ dc=example,dc=org`:
+* **`ou=groups`**: Contains role groups (`cn=bi-admins`, `cn=bi-analysts`, `cn=bi-finance-viewers`, `cn=bi-sales-viewers`).
+* **`ou=users`**: Contains active user entries.
 
 ![phpLDAPadmin Directory Tree](docs/images/04_phpldapadmin_groups_tree.png)
 
-### 4.3 Step-by-Step: Create a New Administrator User
-Follow these exact steps to add a new employee and grant them administrator access:
+### 4.3 Step-by-Step: Create a New User and Assign Roles
+Follow these steps to manually add a new user and assign them to an LDAP group:
 
-1. **Create the User Entry**:
+1. **Create the User Account**:
    * In the left panel, click on **`ou=users`**.
    * In the main right pane, click **"Create a child entry"**.
    * Select **"Generic: User Account"** (or `inetOrgPerson`).
-   * Fill in the user details:
+   * Enter the user details:
      * **First name (givenName)**: `Mehmet`
      * **Last name (sn)**: `Admin`
      * **Common Name (cn)**: `Mehmet Admin`
@@ -246,84 +239,140 @@ Follow these exact steps to add a new employee and grant them administrator acce
      * **Password (userPassword)**: `Password123!`
    * Click **Create Object**, then click **Commit**.
 
-2. **Assign the User to the `bi-admins` Group**:
-   * In the left tree, under `ou=groups`, click directly on **`cn=bi-admins`**.
-   * In the right pane, locate the **`member`** attribute section.
-   * Click the blue **`(add value)`** link directly below the `member` input box.
-   * In the new input field that appears, paste the full Distinguished Name (DN) of the new user:
+2. **Assign the User to a Department Group**:
+   * In the left tree under `ou=groups`, click directly on the desired group (for example, **`cn=bi-admins`** for administrator access, or **`cn=bi-finance-viewers`** for finance access).
+   * In the right pane, locate the **`member`** attribute.
+   * Click the blue **`(add value)`** link directly below the `member` field.
+   * Paste the full Distinguished Name (DN) of the new user:
      ```text
      uid=mehmet.admin,ou=users,dc=example,dc=org
      ```
-   * Scroll to the bottom of the page and click **"Update Object"** to save changes.
-
-3. **Verify Login in Superset**:
-   * Go to [http://localhost:8088](http://localhost:8088) and click **"SIGN IN WITH KEYCLOAK"**.
-   * Enter username: `mehmet.admin` and password: `Password123!`.
-   * Superset will automatically provision the user with the **`Admin`** role on first login.
+   * Click the **"Update Object"** button at the bottom of the page to save.
 
 ---
 
-## Step 5: Multi-Tenant Data Governance and Row-Level Security
+## Part 5: Single Sign-On Authentication via Keycloak
 
-The PostgreSQL analytics database (`analytics_dw`) stores business orders across multiple departments:
-* `FIN`: Finance and Accounting
-* `SLS`: Sales and Commercial
-* `OPS`: Global Operations
+### 5.1 Sign In with Keycloak
+1. Open your browser and navigate to: [http://localhost:8088](http://localhost:8088)
+2. On the Superset sign-in page, click the **"SIGN IN WITH KEYCLOAK"** button:
 
-### Pre-Built Dashboards
-Open the **Dashboards** menu in Superset to view:
-* **Executive Enterprise Overview**: Shows full corporate order volumes and revenue across all departments. Restricted to `Admin` and `Alpha` roles.
-* **Finance Performance Dashboard**: Shows treasury, tax, and ERP audit orders. Bound to the `Finance_Viewers` role.
-* **Sales Revenue Dashboard**: Shows regional CRM and commercial licensing sales. Bound to the `Sales_Viewers` role.
+![Superset Sign In with Keycloak](docs/images/01_superset_signin_button.png)
 
-### Row-Level Security Enforcement
-When users query datasets or view dashboards:
-* An **Admin** or **Analyst** (`john.admin`, `alice.analyst`) sees all 11 orders with total revenue of $2,615,000.
-* A **Finance Viewer** (`bob.finance`) sees only the 4 Finance orders with total revenue of $865,000. All Sales and Operations rows are filtered out by the database engine via clause `department_code = 'FIN'`.
-* A **Sales Viewer** (`carol.sales`) sees only the 4 Sales orders with total revenue of $630,000. All other department rows are filtered out via clause `department_code = 'SLS'`.
+3. Superset redirects your browser to the Keycloak authentication screen.
 
----
+### 5.2 Enter Credentials
+On the Keycloak login screen:
+* In **Username or email**, enter your LDAP username (such as `john.admin`, `bob.finance`, or your newly created user).
+* In **Password**, enter: `Password123!`
+* Click **Sign In**:
 
-## Step 6: Automated End-to-End Compliance Testing
+![Keycloak Authentication Screen](docs/images/02_keycloak_login.png)
 
-To verify all components, security rules, and permission boundaries automatically, run the unified verification runner:
+### 5.3 Dynamic User Creation and Role Synchronization
+Upon authentication:
+1. Keycloak validates the password against OpenLDAP, retrieves the user's groups, and generates a signed OIDC token with the `groups` claim.
+2. Superset's `CustomSsoSecurityManager` decodes the token, creates the user account on first login, and maps LDAP groups to Superset roles.
+3. Log in as an administrator (`john.admin`) and navigate to **Settings > List Users** to view all synchronized users and their assigned roles:
 
-```powershell
-.\scripts\run-e2e-tests.ps1
-```
-
-The script executes three sequential testing phases:
-* **Phase 1**: Asserts OpenLDAP user and group schemas, and performs Direct Access Grant token requests against Keycloak to verify `groups` claim generation.
-* **Phase 2**: Verifies Superset database readiness, Redis cache responsiveness, and checks that `CustomSsoSecurityManager` correctly maps LDAP groups to Superset roles.
-* **Phase 3**: Connects to `analytics_dw`, compiles RLS SQL predicates for each persona, and validates that queries return only authorized department rows.
-
-Expected test result output:
-```text
-==================================================================
-                      E2E TEST SCORECARD                          
-==================================================================
- [PASS] Phase 1: LDAP Directory & Keycloak Federation
- [PASS] Phase 2: Superset SSO & Dynamic RBAC Engine
- [PASS] Phase 3: Multi-Tenant Data Governance & RLS Filtering
-------------------------------------------------------------------
- [ALL TESTS PASSED] Architecture fully compliant with AGENTS.md!
-```
+![Superset Synchronized User Roles List](docs/images/03_superset_synced_users.png)
 
 ---
 
-## Step 7: Platform Teardown
+## Part 6: Configuring Data Governance & RLS in Superset (Manual Web UI Guide)
 
-To clean up and remove resources created by the platform:
+Access control and data isolation are managed directly in the Apache Superset Web UI.
 
-```powershell
-# Remove all deployments, services, and network policies (preserves PVC data volumes)
-.\scripts\teardown.ps1
+### 6.1 Connect Database in Superset UI
+1. Log in as an Administrator (`john.admin`).
+2. Go to **Settings > Database Connections** (top right gear icon).
+3. Click the **+ Database** button.
+4. Select **PostgreSQL** and enter the connection details:
+   * **Database Name**: `Analytics Data Warehouse`
+   * **SQLAlchemy URI**:
+     ```text
+     postgresql+psycopg2://superset:supersetpassword@superset-db.superset-bi.svc.cluster.local:5432/analytics_dw
+     ```
+5. Click **Connect**, then click **Finish**.
 
-# Remove all workloads and delete persistent volumes
-.\scripts\teardown.ps1 -DeletePvc
+### 6.2 Register Dataset in Superset UI
+1. Go to **Datasets** in the top navigation bar.
+2. Click the **+ Dataset** button.
+3. In the modal:
+   * **Database**: `Analytics Data Warehouse`
+   * **Schema**: `public`
+   * **Table**: `fact_orders`
+4. Click **Create Dataset and Create Chart**.
 
-# Completely delete the superset-bi namespace
-.\scripts\teardown.ps1 -DeleteNamespace
+### 6.3 Configure Row-Level Security (RLS) Rules in Superset UI
+1. Go to **Settings > Row Level Security**.
+2. Click the **+ Rule** button to create the Finance filter:
+   * **Rule Name**: `Finance Department Filter`
+   * **Filter Type**: `Regular`
+   * **Tables**: `fact_orders`
+   * **Roles**: `Finance_Viewers`
+   * **Clause**: `department_code = 'FIN'`
+   * Click **Save**.
+3. Click the **+ Rule** button to create the Sales filter:
+   * **Rule Name**: `Sales Department Filter`
+   * **Filter Type**: `Regular`
+   * **Tables**: `fact_orders`
+   * **Roles**: `Sales_Viewers`
+   * **Clause**: `department_code = 'SLS'`
+   * Click **Save**.
+
+### 6.4 Configure Dashboard RBAC in Superset UI
+1. Go to **Dashboards** in the top navigation bar.
+2. Click on a dashboard to open it, then click **Edit Dashboard** (pencil icon).
+3. Click the three dots menu (`...`) > **Edit dashboard properties**.
+4. In the **Access** / **Roles** dropdown:
+   * For the Finance dashboard, add the **`Finance_Viewers`** role.
+   * For the Sales dashboard, add the **`Sales_Viewers`** role.
+   * For the Executive dashboard, add the **`Admin`** and **`Alpha`** roles.
+5. Click **Save**.
+
+---
+
+## Part 7: Testing Access Control and Row-Level Security
+
+Test the security partitioning manually using different personas in separate Incognito / Private browser windows:
+
+### Test Case 1: BI Administrator (`john.admin`)
+1. Open a new private browser window and navigate to [http://localhost:8088](http://localhost:8088).
+2. Sign in with `john.admin` / `Password123!`.
+3. **Verify Results**:
+   * Can access all dashboards (Executive, Finance, Sales).
+   * Full access to **SQL Lab** (can write arbitrary SQL queries).
+   * Views all 11 orders with total revenue of $2,615,000 across FIN, SLS, and OPS.
+
+### Test Case 2: Finance Viewer (`bob.finance`)
+1. Open a fresh private browser window and navigate to [http://localhost:8088](http://localhost:8088).
+2. Sign in with `bob.finance` / `Password123!`.
+3. **Verify Results**:
+   * Visible Dashboards: Only the **Finance Performance Dashboard** appears in the list.
+   * SQL Lab access is **completely removed/blocked** from the navigation bar.
+   * When viewing charts, only 4 Finance orders are visible ($865,000 revenue). Sales and Operations data are masked out by the RLS database filter.
+
+### Test Case 3: Sales Viewer (`carol.sales`)
+1. Open a fresh private browser window and navigate to [http://localhost:8088](http://localhost:8088).
+2. Sign in with `carol.sales` / `Password123!`.
+3. **Verify Results**:
+   * Visible Dashboards: Only the **Sales Revenue Dashboard** appears.
+   * SQL Lab access is **completely removed/blocked**.
+   * When viewing charts, only 4 Sales orders are visible ($630,000 revenue). Finance and Operations data are masked out.
+
+---
+
+## Part 8: Platform Teardown via kubectl
+
+To tear down all deployed Kubernetes resources:
+
+```bash
+# Delete all workloads, services, and policies (preserves persistent volume data)
+kubectl delete -k deploy/k8s
+
+# Or completely purge the namespace and all associated volumes
+kubectl delete namespace superset-bi
 ```
 
 ---
@@ -334,6 +383,7 @@ To clean up and remove resources created by the platform:
 ├── AGENTS.MD                               # System requirements and autonomous agent blueprint
 ├── README.md                               # Operational guide and platform documentation
 ├── .env.example                            # Configuration environment template
+├── .gitignore                              # Git ignore rules for secrets and temporary files
 ├── data/
 │   └── schema.sql                          # Analytics DW schema and mock orders seed
 ├── deploy/
@@ -344,26 +394,46 @@ To clean up and remove resources created by the platform:
 │       ├── ingress.yaml                    # Ingress resource for web, SSO, and LDAP UI
 │       ├── network-policies.yaml           # Zero-trust inter-pod network isolation
 │       ├── ldap/                           # OpenLDAP and phpLDAPadmin manifests
+│       │   ├── configmap.yaml
+│       │   ├── deployment.yaml
+│       │   ├── phpldapadmin.yaml
+│       │   ├── pvc.yaml
+│       │   └── service.yaml
 │       ├── keycloak/                       # Keycloak and Keycloak-DB manifests
+│       │   ├── deployment.yaml
+│       │   ├── postgres-deployment.yaml
+│       │   ├── postgres-pvc.yaml
+│       │   ├── postgres-service.yaml
+│       │   ├── realm-configmap.yaml
+│       │   └── service.yaml
 │       └── superset/                       # Superset web, worker, db, redis, init-job
+│           ├── configmap.yaml
+│           ├── db-deployment.yaml
+│           ├── db-pvc.yaml
+│           ├── db-service.yaml
+│           ├── init-job.yaml
+│           ├── redis-deployment.yaml
+│           ├── redis-service.yaml
+│           ├── service.yaml
+│           ├── web-deployment.yaml
+│           └── worker-deployment.yaml
 ├── docs/
 │   ├── images/                             # Instructional screenshots
+│   │   ├── 01_superset_signin_button.png
+│   │   ├── 02_keycloak_login.png
+│   │   ├── 03_superset_synced_users.png
+│   │   └── 04_phpldapadmin_groups_tree.png
 │   └── rls_matrix.md                       # Comprehensive RLS mapping specification
 ├── iam/
-│   ├── ldap/bootstrap.ldif                 # Seed users and organizational groups
-│   └── keycloak/realm-export.json          # Pre-configured realm with LDAP federation
-├── scripts/
-│   ├── run-e2e-tests.ps1                   # Consolidated E2E test runner
-│   ├── teardown.ps1                        # Cluster cleanup and resource removal
-│   ├── configure-superset-governance.py    # Database, dataset, and RLS provisioning
-│   ├── populate-dashboards.py              # Visual charts and dashboard layout generator
-│   ├── create-sample-ldap-user.ps1         # Automated LDAP user creation script
-│   ├── verify-new-user-sso.ps1             # Verification script for newly created user
-│   ├── verify-phase1.ps1                   # Phase 1 LDAP/Keycloak verification
-│   ├── verify-phase2.ps1                   # Phase 2 Superset SSO verification
-│   └── verify-phase3.ps1                   # Phase 3 RLS and RBAC verification
+│   ├── ldap/
+│   │   └── bootstrap.ldif                  # Seed users and organizational groups
+│   └── keycloak/
+│       └── realm-export.json               # Pre-configured realm with LDAP federation
 └── superset/
-    ├── config/superset_config.py           # Superset configuration with OAuth provider
-    ├── docker/Dockerfile                   # Production container build specification
-    └── security/custom_sso_security_manager.py # Custom FAB Security Manager
+    ├── config/
+    │   └── superset_config.py              # Superset configuration with OAuth provider
+    ├── docker/
+    │   └── Dockerfile                      # Production container build specification
+    └── security/
+        └── custom_sso_security_manager.py  # Custom FAB Security Manager
 ```
