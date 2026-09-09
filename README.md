@@ -309,6 +309,10 @@ Access control and data isolation are managed directly in the Apache Superset We
 4. Click **Create Dataset and Create Chart**.
 
 ### 6.3 Configure Row-Level Security (RLS) Rules in Superset UI
+
+> [!NOTE]
+> Custom department roles (`Finance_Viewers`, `Sales_Viewers`) are provisioned automatically when department users (such as `bob.finance` or `carol.sales`) log in via Keycloak SSO for the first time. To register them beforehand, navigate to **Settings > List Roles**, click **+**, enter the role name, and click **Save**.
+
 1. Go to **Settings > Row Level Security**.
 2. Click the **+ Rule** button to create the Finance filter:
    * **Rule Name**: `Finance Department Filter`
