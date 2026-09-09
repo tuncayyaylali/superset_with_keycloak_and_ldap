@@ -432,8 +432,6 @@ kubectl delete namespace superset-bi
 └── superset/
     ├── config/
     │   └── superset_config.py              # Superset configuration with OAuth provider
-    ├── docker/
-    │   └── Dockerfile                      # Production container build specification
     └── security/
         └── custom_sso_security_manager.py  # Custom FAB Security Manager
 ```
