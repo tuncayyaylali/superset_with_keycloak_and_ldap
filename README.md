@@ -512,7 +512,6 @@ kubectl delete namespace superset-bi
 ## Repository Structure
 
 ```
-├── AGENTS.MD                               # System requirements and autonomous agent blueprint
 ├── README.md                               # Operational guide and platform documentation
 ├── .gitignore                              # Git ignore rules for secrets and temporary files
 ├── data/
