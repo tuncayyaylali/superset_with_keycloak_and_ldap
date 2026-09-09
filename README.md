@@ -307,6 +307,13 @@ Access control and data isolation are managed directly in the Apache Superset We
    * **Schema**: `public`
    * **Table**: `fact_orders`
 4. Click **Create Dataset and Create Chart**.
+5. **Configure Saved Metrics (Recommended for easy sorting and reuse)**:
+   * Navigate to **Datasets**, locate `public.fact_orders`, and click the **Edit** (pencil) icon.
+   * Switch to the **Metrics** tab and click **+ Add Metric**:
+     * **Metric Name**: `total_revenue` | **SQL Expression**: `SUM(order_amount)`
+   * Click **+ Add Metric** again:
+     * **Metric Name**: `total_profit` | **SQL Expression**: `SUM(profit)`
+   * Click **Save**. These metrics will now appear in the **Saved** metrics tab and will be directly selectable in the **Sort By** dropdown in all charts.
 
 ### 6.3 Configure Row-Level Security (RLS) Rules in Superset UI
 
