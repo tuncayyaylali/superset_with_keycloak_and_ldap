@@ -67,21 +67,102 @@ Before deploying the platform, ensure the following tools are installed and oper
 
 ---
 
-## Step 1: Automated Cluster Deployment
+## Step 1: Manual Step-by-Step Cluster Deployment
 
-To deploy all infrastructure services, database schemas, and governance rules in a single step, execute the automated deployment script from the project root:
+Deploy all platform components step-by-step using standard `kubectl` commands.
 
-```powershell
-.\scripts\deploy-all.ps1
+### 1.1 Create Namespace and Secrets
+Initialize the target namespace and load base credentials:
+
+```bash
+kubectl apply -f deploy/k8s/namespace.yaml
+kubectl apply -f deploy/k8s/secrets.yaml
 ```
 
-This deployment script performs the following operations:
-1. Applies all Kubernetes manifests in `deploy/k8s/` via Kustomize (Namespaces, Secrets, PVCs, ConfigMaps, Deployments, Services, Ingress, and NetworkPolicies).
-2. Waits for OpenLDAP, Keycloak PostgreSQL, and Keycloak to reach running and ready status.
-3. Provisions the PostgreSQL `analytics_dw` database and executes `data/schema.sql` to populate dimensions and fact tables.
-4. Waits for the `superset-init` database migration Job to complete.
-5. Deploys the Superset Webserver and Celery Worker pods.
-6. Connects Superset to `analytics_dw`, creates Row-Level Security rules, and provisions pre-built analytical dashboards.
+### 1.2 Deploy OpenLDAP and phpLDAPadmin (Phase 1)
+Deploy the directory service, bootstrap schemas, and web interface:
+
+```bash
+kubectl apply -f deploy/k8s/ldap/configmap.yaml
+kubectl apply -f deploy/k8s/ldap/pvc.yaml
+kubectl apply -f deploy/k8s/ldap/deployment.yaml
+kubectl apply -f deploy/k8s/ldap/service.yaml
+kubectl apply -f deploy/k8s/ldap/phpldapadmin.yaml
+
+# Wait for LDAP services to become ready
+kubectl wait --for=condition=ready pod -l app=openldap -n superset-bi --timeout=180s
+kubectl rollout status deployment/phpldapadmin -n superset-bi --timeout=180s
+```
+
+### 1.3 Deploy Keycloak Identity Broker (Phase 1)
+Deploy the Keycloak PostgreSQL storage and server with pre-configured realm import:
+
+```bash
+kubectl apply -f deploy/k8s/keycloak/postgres-pvc.yaml
+kubectl apply -f deploy/k8s/keycloak/postgres-deployment.yaml
+kubectl apply -f deploy/k8s/keycloak/postgres-service.yaml
+kubectl apply -f deploy/k8s/keycloak/realm-configmap.yaml
+kubectl apply -f deploy/k8s/keycloak/deployment.yaml
+kubectl apply -f deploy/k8s/keycloak/service.yaml
+
+# Wait for Keycloak to become ready
+kubectl wait --for=condition=ready pod -l app=keycloak-db -n superset-bi --timeout=180s
+kubectl rollout status deployment/keycloak -n superset-bi --timeout=300s
+```
+
+### 1.4 Deploy Apache Superset Infrastructure (Phase 2)
+Deploy PostgreSQL, Redis, configuration files, and run database migrations:
+
+```bash
+kubectl apply -f deploy/k8s/superset/db-pvc.yaml
+kubectl apply -f deploy/k8s/superset/db-deployment.yaml
+kubectl apply -f deploy/k8s/superset/db-service.yaml
+kubectl apply -f deploy/k8s/superset/redis-deployment.yaml
+kubectl apply -f deploy/k8s/superset/redis-service.yaml
+kubectl apply -f deploy/k8s/superset/configmap.yaml
+kubectl apply -f deploy/k8s/superset/service.yaml
+
+# Wait for Superset database and Redis
+kubectl wait --for=condition=ready pod -l app=superset-db -n superset-bi --timeout=180s
+kubectl wait --for=condition=ready pod -l app=superset-redis -n superset-bi --timeout=180s
+
+# Run database initialization and migration job
+kubectl apply -f deploy/k8s/superset/init-job.yaml
+kubectl wait --for=condition=complete job/superset-init -n superset-bi --timeout=300s
+
+# Deploy Superset Web and Celery Worker
+kubectl apply -f deploy/k8s/superset/web-deployment.yaml
+kubectl apply -f deploy/k8s/superset/worker-deployment.yaml
+kubectl rollout status deployment/superset-web -n superset-bi --timeout=300s
+kubectl rollout status deployment/superset-worker -n superset-bi --timeout=300s
+```
+
+### 1.5 Seed Analytics Data Warehouse and Configure Governance (Phase 3)
+Initialize the `analytics_dw` database, populate orders, and register Row-Level Security rules:
+
+```bash
+# 1. Create analytics_dw database in PostgreSQL
+kubectl exec -n superset-bi deployment/superset-db -- psql -U superset -d postgres -c "CREATE DATABASE analytics_dw;"
+
+# 2. Populate dimensions and fact orders
+kubectl exec -i -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw < data/schema.sql
+
+# 3. Register database, dataset, and RLS rules in Superset
+kubectl exec -i -n superset-bi deployment/superset-web -- python < scripts/configure-superset-governance.py
+
+# 4. Attach analytical charts and layouts to dashboards
+kubectl exec -i -n superset-bi deployment/superset-web -- python < scripts/populate-dashboards.py
+```
+
+### 1.6 Apply Ingress and Zero-Trust Network Policies (Phase 4)
+Protect inter-pod communication and configure HTTP routing:
+
+```bash
+kubectl apply -f deploy/k8s/ingress.yaml
+kubectl apply -f deploy/k8s/network-policies.yaml
+```
+
+*(Note: You can also deploy all YAML manifests in a single command using `kubectl apply -k deploy/k8s` and then execute the schema seeding and governance scripts in step 1.5).*
 
 ---
 
@@ -272,7 +353,6 @@ To clean up and remove resources created by the platform:
 │   ├── ldap/bootstrap.ldif                 # Seed users and organizational groups
 │   └── keycloak/realm-export.json          # Pre-configured realm with LDAP federation
 ├── scripts/
-│   ├── deploy-all.ps1                      # Single-command cluster deployment
 │   ├── run-e2e-tests.ps1                   # Consolidated E2E test runner
 │   ├── teardown.ps1                        # Cluster cleanup and resource removal
 │   ├── configure-superset-governance.py    # Database, dataset, and RLS provisioning
