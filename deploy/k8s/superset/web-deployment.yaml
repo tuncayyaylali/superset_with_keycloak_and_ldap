@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset-web
+  namespace: superset-bi
+  labels:
+    app: superset-web
+    app.kubernetes.io/component: superset-web
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: superset-web
+  template:
+    metadata:
+      labels:
+        app: superset-web
+        app.kubernetes.io/component: superset-web
+        app.kubernetes.io/part-of: bi-platform
+    spec:
+      containers:
+        - name: superset-web
+          image: apache/superset:3.1.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              pip install --no-cache-dir Authlib==1.3.0
+              gunicorn \
+                --bind 0.0.0.0:8088 \
+                --workers 2 \
+                --timeout 120 \
+                --limit-request-line 0 \
+                --limit-request-field_size 0 \
+                "superset.app:create_app()"
+          env:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_SECRET_KEY
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SUPERSET_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_OIDC_CLIENT_SECRET
+            - name: POSTGRES_HOST
+              value: superset-db.superset-bi.svc.cluster.local
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: superset-redis.superset-bi.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: PYTHONPATH
+              value: /app/pythonpath
+          ports:
+            - name: http
+              containerPort: 8088
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+          volumeMounts:
+            - name: superset-config-volume
+              mountPath: /app/pythonpath
+      volumes:
+        - name: superset-config-volume
+          configMap:
+            name: superset-config
+

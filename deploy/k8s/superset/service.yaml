@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset
+  namespace: superset-bi
+  labels:
+    app: superset-web
+    app.kubernetes.io/component: superset-web
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: superset-web
+  ports:
+    - name: http
+      port: 8088
+      targetPort: 8088
+      protocol: TCP
+

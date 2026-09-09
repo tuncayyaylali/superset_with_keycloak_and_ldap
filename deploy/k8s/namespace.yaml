@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: superset-bi
+  labels:
+    app.kubernetes.io/part-of: bi-platform
+    environment: development
+

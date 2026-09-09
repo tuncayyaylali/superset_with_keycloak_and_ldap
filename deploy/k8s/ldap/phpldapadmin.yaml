@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpldapadmin
+  namespace: superset-bi
+  labels:
+    app: phpldapadmin
+    app.kubernetes.io/component: ldap-gui
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpldapadmin
+  template:
+    metadata:
+      labels:
+        app: phpldapadmin
+        app.kubernetes.io/component: ldap-gui
+        app.kubernetes.io/part-of: bi-platform
+    spec:
+      containers:
+        - name: phpldapadmin
+          image: osixia/phpldapadmin:0.9.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PHPLDAPADMIN_LDAP_HOSTS
+              value: "openldap.superset-bi.svc.cluster.local"
+            - name: PHPLDAPADMIN_HTTPS
+              value: "false"
+            - name: PHPLDAPADMIN_SERVER_ADMIN
+              value: "admin@example.org"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpldapadmin
+  namespace: superset-bi
+  labels:
+    app: phpldapadmin
+    app.kubernetes.io/component: ldap-gui
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: phpldapadmin
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+

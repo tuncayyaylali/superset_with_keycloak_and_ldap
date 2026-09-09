@@ -1,0 +1,321 @@
+{
+  "realm": "analytics-realm",
+  "displayName": "Analytics BI Realm",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "bi-admin",
+        "description": "BI Platform Administrator"
+      },
+      {
+        "name": "bi-analyst",
+        "description": "BI Analyst"
+      },
+      {
+        "name": "bi-viewer",
+        "description": "BI Read-only Viewer"
+      }
+    ]
+  },
+  "groups": [],
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "id": "ldap-openldap-provider",
+        "name": "openldap",
+        "providerId": "ldap",
+        "subComponents": {
+          "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
+            {
+              "id": "ldap-group-mapper",
+              "name": "group-ldap-mapper",
+              "providerId": "group-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "groups.dn": [
+                  "ou=groups,dc=example,dc=org"
+                ],
+                "group.name.ldap.attribute": [
+                  "cn"
+                ],
+                "group.object.classes": [
+                  "groupOfNames"
+                ],
+                "membership.ldap.attribute": [
+                  "member"
+                ],
+                "membership.attribute.type": [
+                  "DN"
+                ],
+                "membership.user.ldap.attribute": [
+                  "entryDN"
+                ],
+                "groups.path": [
+                  "/"
+                ],
+                "mode": [
+                  "READ_ONLY"
+                ],
+                "user.roles.retrieve.strategy": [
+                  "LOAD_GROUPS_BY_MEMBER_ATTRIBUTE"
+                ],
+                "ignore.missing.groups": [
+                  "false"
+                ],
+                "preserve.group.inheritance": [
+                  "false"
+                ],
+                "drop.non.existing.groups.during.sync": [
+                  "false"
+                ]
+              }
+            },
+            {
+              "id": "ldap-username-mapper",
+              "name": "username-mapper",
+              "providerId": "user-attribute-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "ldap.attribute": [
+                  "uid"
+                ],
+                "is.mandatory.in.ldap": [
+                  "true"
+                ],
+                "always.read.value.from.ldap": [
+                  "true"
+                ],
+                "read.only": [
+                  "true"
+                ],
+                "user.model.attribute": [
+                  "username"
+                ]
+              }
+            },
+            {
+              "id": "ldap-first-name-mapper",
+              "name": "first-name-mapper",
+              "providerId": "user-attribute-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "ldap.attribute": [
+                  "givenName"
+                ],
+                "is.mandatory.in.ldap": [
+                  "false"
+                ],
+                "always.read.value.from.ldap": [
+                  "true"
+                ],
+                "read.only": [
+                  "true"
+                ],
+                "user.model.attribute": [
+                  "firstName"
+                ]
+              }
+            },
+            {
+              "id": "ldap-last-name-mapper",
+              "name": "last-name-mapper",
+              "providerId": "user-attribute-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "ldap.attribute": [
+                  "sn"
+                ],
+                "is.mandatory.in.ldap": [
+                  "true"
+                ],
+                "always.read.value.from.ldap": [
+                  "true"
+                ],
+                "read.only": [
+                  "true"
+                ],
+                "user.model.attribute": [
+                  "lastName"
+                ]
+              }
+            },
+            {
+              "id": "ldap-email-mapper",
+              "name": "email-mapper",
+              "providerId": "user-attribute-ldap-mapper",
+              "subComponents": {},
+              "config": {
+                "ldap.attribute": [
+                  "mail"
+                ],
+                "is.mandatory.in.ldap": [
+                  "true"
+                ],
+                "always.read.value.from.ldap": [
+                  "true"
+                ],
+                "read.only": [
+                  "true"
+                ],
+                "user.model.attribute": [
+                  "email"
+                ]
+              }
+            }
+          ]
+        },
+        "config": {
+          "enabled": [
+            "true"
+          ],
+          "priority": [
+            "0"
+          ],
+          "editMode": [
+            "READ_ONLY"
+          ],
+          "syncRegistrations": [
+            "false"
+          ],
+          "vendor": [
+            "other"
+          ],
+          "usernameLDAPAttribute": [
+            "uid"
+          ],
+          "rdnLDAPAttribute": [
+            "uid"
+          ],
+          "uuidLDAPAttribute": [
+            "entryUUID"
+          ],
+          "userObjectClasses": [
+            "inetOrgPerson, organizationalPerson, person"
+          ],
+          "connectionUrl": [
+            "ldap://openldap.superset-bi.svc.cluster.local:389"
+          ],
+          "usersDn": [
+            "ou=users,dc=example,dc=org"
+          ],
+          "authType": [
+            "simple"
+          ],
+          "bindDn": [
+            "cn=admin,dc=example,dc=org"
+          ],
+          "bindCredential": [
+            "adminpassword"
+          ],
+          "searchScope": [
+            "1"
+          ],
+          "importEnabled": [
+            "true"
+          ],
+          "batchSizeForSync": [
+            "1000"
+          ],
+          "fullSyncPeriod": [
+            "60"
+          ],
+          "changedSyncPeriod": [
+            "60"
+          ],
+          "allowKerberosAuthentication": [
+            "false"
+          ],
+          "useKerberosForPasswordAuthentication": [
+            "false"
+          ],
+          "trustEmail": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "id": "superset-client-uuid",
+      "clientId": "superset",
+      "name": "Apache Superset",
+      "description": "OIDC Client for Apache Superset with LDAP group mapping",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "superset-client-secret-12345",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "baseUrl": "http://localhost:8088",
+      "rootUrl": "http://localhost:8088",
+      "redirectUris": [
+        "http://localhost:8088/*",
+        "http://localhost:8088/oauth-authorized/keycloak",
+        "http://127.0.0.1:8088/oauth-authorized/keycloak",
+        "http://superset:8088/oauth-authorized/keycloak",
+        "http://superset.superset-bi.svc.cluster.local:8088/oauth-authorized/keycloak",
+        "https://*/oauth-authorized/keycloak"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "protocolMappers": [
+        {
+          "id": "superset-group-mapper",
+          "name": "groups-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "groups",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "id": "superset-client-audience-mapper",
+          "name": "client-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "superset",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}
+

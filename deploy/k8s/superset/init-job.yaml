@@ -1,0 +1,116 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: superset-init
+  namespace: superset-bi
+  labels:
+    app: superset-init
+    app.kubernetes.io/component: superset-init
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: superset-init
+        app.kubernetes.io/component: superset-init
+        app.kubernetes.io/part-of: bi-platform
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: superset-init
+          image: apache/superset:3.1.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Installing Authlib dependency..."
+              pip install --no-cache-dir Authlib==1.3.0
+
+              echo "Waiting for Superset PostgreSQL database..."
+              python -c "
+              import socket, time
+              for i in range(30):
+                  try:
+                      s = socket.create_connection(('superset-db', 5432), timeout=2)
+                      s.close()
+                      print('Connected to PostgreSQL successfully!')
+                      break
+                  except Exception as e:
+                      print(f'Waiting for DB: {e}')
+                      time.sleep(2)
+              "
+
+              echo "Database is ready. Starting database upgrade..."
+              superset db upgrade
+
+              echo "Creating local fallback administrator..."
+              superset fab create-admin \
+                --username admin \
+                --firstname Superset \
+                --lastname Admin \
+                --email admin@example.org \
+                --password "$SUPERSET_ADMIN_PASSWORD" || true
+
+              echo "Initializing Superset default roles and permissions..."
+              superset init
+
+              echo "Provisioning Departmental Custom Roles for RLS..."
+              superset fab create-role --name Finance_Viewers || true
+              superset fab create-role --name Sales_Viewers || true
+
+              echo "Superset initialization successfully completed!"
+          env:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_SECRET_KEY
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SUPERSET_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_ADMIN_PASSWORD
+            - name: SUPERSET_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_OIDC_CLIENT_SECRET
+            - name: POSTGRES_HOST
+              value: superset-db.superset-bi.svc.cluster.local
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: PYTHONPATH
+              value: /app/pythonpath
+          volumeMounts:
+            - name: superset-config-volume
+              mountPath: /app/pythonpath
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+      volumes:
+        - name: superset-config-volume
+          configMap:
+            name: superset-config
+

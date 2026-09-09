@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap
+  namespace: superset-bi
+  labels:
+    app: openldap
+    app.kubernetes.io/component: ldap
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: openldap
+        app.kubernetes.io/component: ldap
+        app.kubernetes.io/part-of: bi-platform
+    spec:
+      containers:
+        - name: openldap
+          image: osixia/openldap:1.5.0
+          imagePullPolicy: IfNotPresent
+          args: ["--copy-service"]
+          env:
+            - name: LDAP_ORGANISATION
+              value: "Example Org"
+            - name: LDAP_DOMAIN
+              value: "example.org"
+            - name: LDAP_BASE_DN
+              value: "dc=example,dc=org"
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ldap-secrets
+                  key: LDAP_ADMIN_PASSWORD
+            - name: LDAP_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ldap-secrets
+                  key: LDAP_CONFIG_PASSWORD
+            - name: LDAP_RFC2307BIS_SCHEMA
+              value: "true"
+            - name: LDAP_REMOVE_CONFIG_AFTER_SETUP
+              value: "false"
+            - name: LDAP_TLS
+              value: "false"
+          ports:
+            - name: ldap
+              containerPort: 389
+              protocol: TCP
+            - name: ldaps
+              containerPort: 636
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: ldap-data
+              mountPath: /var/lib/ldap
+            - name: ldap-config
+              mountPath: /etc/ldap/slapd.d
+            - name: ldap-bootstrap-volume
+              mountPath: /container/service/slapd/assets/config/bootstrap/ldif/custom/bootstrap.ldif
+              subPath: bootstrap.ldif
+      volumes:
+        - name: ldap-data
+          persistentVolumeClaim:
+            claimName: openldap-data-pvc
+        - name: ldap-config
+          persistentVolumeClaim:
+            claimName: openldap-config-pvc
+        - name: ldap-bootstrap-volume
+          configMap:
+            name: openldap-bootstrap
+

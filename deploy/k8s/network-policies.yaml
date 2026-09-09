@@ -1,0 +1,138 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ldap-isolation
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: openldap
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: keycloak
+        - podSelector:
+            matchLabels:
+              app: phpldapadmin
+      ports:
+        - protocol: TCP
+          port: 389
+        - protocol: TCP
+          port: 636
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-db-isolation
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: keycloak
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: superset-db-isolation
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: superset-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["superset-web", "superset-worker", "superset-init"]
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: superset-redis-isolation
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: superset-redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["superset-web", "superset-worker", "superset-init"]
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: superset-web-access
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: superset-web
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8088
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-access
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: phpldapadmin-access
+  namespace: superset-bi
+spec:
+  podSelector:
+    matchLabels:
+      app: phpldapadmin
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+
+

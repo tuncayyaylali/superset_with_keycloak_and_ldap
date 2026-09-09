@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset-worker
+  namespace: superset-bi
+  labels:
+    app: superset-worker
+    app.kubernetes.io/component: superset-worker
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: superset-worker
+  template:
+    metadata:
+      labels:
+        app: superset-worker
+        app.kubernetes.io/component: superset-worker
+        app.kubernetes.io/part-of: bi-platform
+    spec:
+      containers:
+        - name: superset-worker
+          image: apache/superset:3.1.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              pip install --no-cache-dir Authlib==1.3.0
+              celery --app=superset.tasks.celery_app:app worker --concurrency=2 -O fair -l INFO
+          env:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_SECRET_KEY
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SUPERSET_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_OIDC_CLIENT_SECRET
+            - name: POSTGRES_HOST
+              value: superset-db.superset-bi.svc.cluster.local
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: superset-redis.superset-bi.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: PYTHONPATH
+              value: /app/pythonpath
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          volumeMounts:
+            - name: superset-config-volume
+              mountPath: /app/pythonpath
+      volumes:
+        - name: superset-config-volume
+          configMap:
+            name: superset-config
+

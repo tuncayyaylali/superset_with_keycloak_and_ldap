@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset-db
+  namespace: superset-bi
+  labels:
+    app: superset-db
+    app.kubernetes.io/component: superset-db
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: superset-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+

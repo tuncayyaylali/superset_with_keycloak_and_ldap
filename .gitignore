@@ -1,0 +1,29 @@
+# Environment files containing live secrets
+.env
+*.env.local
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Logs and temporary files
+*.log
+scratch/
+tmp/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo

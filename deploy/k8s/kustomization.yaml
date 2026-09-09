@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: superset-bi
+
+resources:
+  - namespace.yaml
+  - secrets.yaml
+  - ldap/configmap.yaml
+  - ldap/pvc.yaml
+  - ldap/deployment.yaml
+  - ldap/service.yaml
+  - ldap/phpldapadmin.yaml
+  - keycloak/postgres-pvc.yaml
+  - keycloak/postgres-deployment.yaml
+  - keycloak/postgres-service.yaml
+  - keycloak/realm-configmap.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  - superset/db-pvc.yaml
+  - superset/db-deployment.yaml
+  - superset/db-service.yaml
+  - superset/redis-deployment.yaml
+  - superset/redis-service.yaml
+  - superset/configmap.yaml
+  - superset/init-job.yaml
+  - superset/web-deployment.yaml
+  - superset/worker-deployment.yaml
+  - superset/service.yaml
+  - ingress.yaml
+  - network-policies.yaml

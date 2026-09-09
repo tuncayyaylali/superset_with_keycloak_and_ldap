@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: superset-postgres-pvc
+  namespace: superset-bi
+  labels:
+    app.kubernetes.io/component: superset-db
+    app.kubernetes.io/part-of: bi-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
