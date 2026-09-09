@@ -330,26 +330,102 @@ Access control and data isolation are managed directly in the Apache Superset We
    * Click **Save**.
 
 ### 6.4 Create Visual Charts (Slices) in Superset UI
-1. In the top navigation bar, click **+ > Chart** (or navigate to **Charts** and click **+ Chart**).
+
+Each of the three role-partitioned dashboards contains two dedicated visualizations: an **aggregated summary chart** and a **detailed audit ledger**.
+
+Follow the generic creation workflow below, then apply the specific field configuration for each chart.
+
+#### General Chart Creation Workflow
+1. In the top navigation bar, click **+ > Chart** (or go to **Charts** and click **+ Chart**).
 2. Under **1 Choose a dataset**, select `public.fact_orders`.
 3. Under **2 Choose chart type**, select **Table** (or **Bar Chart**):
 
 ![Superset Create Chart Wizard](docs/images/05_superset_create_chart.png)
 
-4. Click **Create New Chart**.
-5. In the Chart Builder (Explore) view:
-   * **Query Mode**: Select `AGGREGATE`.
-   * **Dimensions**: Add `product_category` (or `region_code`).
-   * **Metrics**: Add `total_revenue`, `total_profit`, and `COUNT(*)`.
-   * Click **Update Chart** to run the query and preview the table.
+4. Click **Create New Chart** to enter the Chart Builder (Explore) view:
 
 ![Superset Chart Builder](docs/images/06_superset_chart_builder.png)
 
-6. In the top right corner, click **Save**.
-7. In the Save modal:
-   * **Chart Name**: `Finance Revenue by Product Category` (or your preferred title).
-   * **Add to Dashboard**: Type or select `Finance Performance Dashboard`.
-   * Click **Save & Go to Dashboard**.
+5. Configure query parameters (Query Mode, Dimensions, Metrics, or Columns).
+6. Click **Update Chart** (or Ctrl + Enter) to run the query and preview the visualization.
+7. Click **Save** in the top right corner:
+   * Enter the **Chart Name**.
+   * Under **Add to Dashboard**, select or type the destination dashboard title.
+   * Click **Save & Go to Dashboard** (or **Save**).
+
+---
+
+#### Field Specifications for All Dashboard Charts
+
+##### 1. Finance Performance Dashboard Charts
+
+* **Chart 1: Finance Revenue by Product Category**
+  * **Visualization Type**: `Table`
+  * **Query Mode**: `AGGREGATE`
+  * **Dimensions (Group by)**: `product_category`
+  * **Metrics**:
+    * `order_amount` -> Aggregate: `SUM`, Custom Label: `total_revenue`
+    * `profit` -> Aggregate: `SUM`, Custom Label: `total_profit`
+    * `COUNT(*)` (row count)
+  * **Sort By**: `total_revenue` (Descending)
+  * **Row Limit**: `100`
+  * **Add to Dashboard**: `Finance Performance Dashboard`
+
+* **Chart 2: Finance Transactions Ledger**
+  * **Visualization Type**: `Table`
+  * **Query Mode**: `RAW RECORDS`
+  * **Columns**: `order_id`, `order_date`, `customer_name`, `product_category`, `order_amount`, `cost_amount`, `profit`
+  * **Sort By**: `order_id` (Descending)
+  * **Row Limit**: `500`
+  * **Add to Dashboard**: `Finance Performance Dashboard`
+
+---
+
+##### 2. Sales Revenue Dashboard Charts
+
+* **Chart 3: Sales Regional Performance**
+  * **Visualization Type**: `Table` (or `Bar Chart`)
+  * **Query Mode**: `AGGREGATE`
+  * **Dimensions (Group by)**: `region_code`
+  * **Metrics**:
+    * `order_amount` -> Aggregate: `SUM`, Custom Label: `total_revenue`
+    * `profit` -> Aggregate: `SUM`, Custom Label: `total_profit`
+    * `COUNT(*)`
+  * **Sort By**: `total_revenue` (Descending)
+  * **Row Limit**: `100`
+  * **Add to Dashboard**: `Sales Revenue Dashboard`
+
+* **Chart 4: Sales Orders Ledger**
+  * **Visualization Type**: `Table`
+  * **Query Mode**: `RAW RECORDS`
+  * **Columns**: `order_id`, `order_date`, `customer_name`, `region_code`, `order_amount`, `cost_amount`, `profit`
+  * **Sort By**: `order_id` (Descending)
+  * **Row Limit**: `500`
+  * **Add to Dashboard**: `Sales Revenue Dashboard`
+
+---
+
+##### 3. Executive Enterprise Overview Charts
+
+* **Chart 5: Enterprise Department Performance**
+  * **Visualization Type**: `Table` (or `Bar Chart`)
+  * **Query Mode**: `AGGREGATE`
+  * **Dimensions (Group by)**: `department_code`
+  * **Metrics**:
+    * `order_amount` -> Aggregate: `SUM`, Custom Label: `total_revenue`
+    * `profit` -> Aggregate: `SUM`, Custom Label: `total_profit`
+    * `COUNT(*)`
+  * **Sort By**: `total_revenue` (Descending)
+  * **Row Limit**: `100`
+  * **Add to Dashboard**: `Executive Enterprise Overview`
+
+* **Chart 6: Enterprise All Orders Ledger**
+  * **Visualization Type**: `Table`
+  * **Query Mode**: `RAW RECORDS`
+  * **Columns**: `order_id`, `order_date`, `department_code`, `region_code`, `customer_name`, `product_category`, `order_amount`, `cost_amount`, `profit`
+  * **Sort By**: `order_id` (Descending)
+  * **Row Limit**: `1000`
+  * **Add to Dashboard**: `Executive Enterprise Overview`
 
 ### 6.5 Assemble and Publish Dashboards in Superset UI
 1. Navigate to **Dashboards** in the top navigation bar to view all registered dashboards:
