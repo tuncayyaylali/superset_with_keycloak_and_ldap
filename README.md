@@ -321,15 +321,53 @@ Access control and data isolation are managed directly in the Apache Superset We
    * **Clause**: `department_code = 'SLS'`
    * Click **Save**.
 
-### 6.4 Configure Dashboard RBAC in Superset UI
-1. Go to **Dashboards** in the top navigation bar.
-2. Click on a dashboard to open it, then click **Edit Dashboard** (pencil icon).
-3. Click the three dots menu (`...`) > **Edit dashboard properties**.
-4. In the **Access** / **Roles** dropdown:
-   * For the Finance dashboard, add the **`Finance_Viewers`** role.
-   * For the Sales dashboard, add the **`Sales_Viewers`** role.
-   * For the Executive dashboard, add the **`Admin`** and **`Alpha`** roles.
-5. Click **Save**.
+### 6.4 Create Visual Charts (Slices) in Superset UI
+1. In the top navigation bar, click **+ > Chart** (or navigate to **Charts** and click **+ Chart**).
+2. Under **1 Choose a dataset**, select `public.fact_orders`.
+3. Under **2 Choose chart type**, select **Table** (or **Bar Chart**):
+
+![Superset Create Chart Wizard](docs/images/05_superset_create_chart.png)
+
+4. Click **Create New Chart**.
+5. In the Chart Builder (Explore) view:
+   * **Query Mode**: Select `AGGREGATE`.
+   * **Dimensions**: Add `product_category` (or `region_code`).
+   * **Metrics**: Add `total_revenue`, `total_profit`, and `COUNT(*)`.
+   * Click **Update Chart** to run the query and preview the table.
+
+![Superset Chart Builder](docs/images/06_superset_chart_builder.png)
+
+6. In the top right corner, click **Save**.
+7. In the Save modal:
+   * **Chart Name**: `Finance Revenue by Product Category` (or your preferred title).
+   * **Add to Dashboard**: Type or select `Finance Performance Dashboard`.
+   * Click **Save & Go to Dashboard**.
+
+### 6.5 Assemble and Publish Dashboards in Superset UI
+1. Navigate to **Dashboards** in the top navigation bar to view all registered dashboards:
+
+![Superset Dashboards List](docs/images/07_superset_dashboards_list.png)
+
+2. Click on a dashboard (such as **Finance Performance Dashboard**) to open it:
+   * The dashboard renders the configured tables, metrics, and KPI aggregations.
+   * Row-Level Security automatically filters data based on the authenticated user's department.
+
+![Superset Rendered Dashboard View](docs/images/09_superset_finance_dashboard.png)
+
+3. To rearrange or add new components, click **Edit Dashboard** (top right) and drag layout elements (Rows, Columns, Tabs, Header) from the right sidebar. Click **Save** when finished.
+
+### 6.6 Enforce Dashboard Access Control (RBAC) in Superset UI
+Because `DASHBOARD_RBAC` is enabled, only users possessing authorized roles can see or open specific dashboards:
+
+1. From the **Dashboards** list, locate the dashboard row and click the pencil/edit icon (or open the dashboard and click the three dots menu `...` > **Edit dashboard properties**).
+2. In the **Access** section, locate the **Roles** field:
+   * For the **Finance Performance Dashboard**, add the **`Finance_Viewers`** role.
+   * For the **Sales Revenue Dashboard**, add the **`Sales_Viewers`** role.
+   * For the **Executive Enterprise Overview**, add the **`Admin`** and **`Alpha`** roles.
+
+![Superset Dashboard RBAC Properties](docs/images/08_superset_dashboard_rbac_modal.png)
+
+3. Click **Save** to persist the role assignment. Users lacking these roles will not see the dashboard in their list or have access to view its contents.
 
 ---
 
@@ -421,7 +459,12 @@ kubectl delete namespace superset-bi
 │       ├── 01_superset_signin_button.png
 │       ├── 02_keycloak_login.png
 │       ├── 03_superset_synced_users.png
-│       └── 04_phpldapadmin_groups_tree.png
+│       ├── 04_phpldapadmin_groups_tree.png
+│       ├── 05_superset_create_chart.png
+│       ├── 06_superset_chart_builder.png
+│       ├── 07_superset_dashboards_list.png
+│       ├── 08_superset_dashboard_rbac_modal.png
+│       └── 09_superset_finance_dashboard.png
 └── superset/
     ├── config/
     │   └── superset_config.py              # Superset configuration with OAuth provider
