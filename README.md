@@ -177,6 +177,10 @@ Initialize the `analytics_dw` database and load the multi-tenant dataset (`data/
 kubectl exec -n superset-bi deployment/superset-db -- psql -U superset -d postgres -c "CREATE DATABASE analytics_dw;"
 
 # 2. Populate dimensions (departments, regions) and fact_orders
+# On Windows PowerShell:
+Get-Content data/schema.sql -Raw | kubectl exec -i -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw
+
+# On Linux / macOS / Git Bash:
 kubectl exec -i -n superset-bi deployment/superset-db -- psql -U superset -d analytics_dw < data/schema.sql
 ```
 
